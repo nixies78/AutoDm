@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoDM — LLM-Powered Text Adventure</title>
+  <meta name="description" content="An AI-powered text adventure engine. Generate rich adventures with Gemini and play them with natural language commands.">
+
+  <!-- Preconnect for Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Favicon (emoji) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+</head>
+<body>
+
+  <!-- Animated particle background -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <!-- Toast notifications -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 1 — HOME
+       ══════════════════════════════════════════════════════════ -->
+  <div id="screen-home" class="screen" role="main">
+    <div class="home-logo" aria-label="AutoDM">AutoDM</div>
+    <p class="home-tagline">AI-Powered Text Adventure Engine</p>
+
+    <nav class="home-actions" aria-label="Main navigation">
+      <button id="btn-new-adventure" class="btn btn-primary" aria-label="Create new adventure">
+        ✨ New Adventure
+      </button>
+      <button id="btn-load-adventure" class="btn btn-secondary" aria-label="Load saved adventure">
+        📚 My Adventures
+      </button>
+      <button id="btn-settings" class="btn btn-ghost" aria-label="Open settings">
+        ⚙️ Settings
+      </button>
+    </nav>
+
+    <div id="api-key-notice" class="home-api-notice hidden" role="alert">
+      ⚠️ No API key set. Open <strong>Settings</strong> to enter your Google AI key and start adventuring.
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 2 — SETTINGS
+       ══════════════════════════════════════════════════════════ -->
+  <div id="screen-settings" class="screen" role="main">
+    <div class="glass settings-card screen-fade-in">
+      <button class="back-link" id="btn-back-settings" aria-label="Back to home">← Back</button>
+      <h1 class="screen-title">⚙️ <span>Settings</span></h1>
+
+      <div class="settings-field">
+        <label for="input-api-key" class="field-label">Google AI API Key</label>
+        <input type="password" id="input-api-key" class="input" placeholder="AIza… or AQ.…" autocomplete="off">
+        <p class="key-hint">
+          Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>.
+          Supports both legacy keys (<code style="color:var(--cyan);font-size:0.85em">AIza…</code>) and new-format keys (<code style="color:var(--cyan);font-size:0.85em">AQ.…</code>).
+          Your key is stored only in this browser.
+        </p>
+        <div class="validate-row">
+          <button id="btn-validate-key" class="btn btn-secondary" style="padding:8px 16px;font-size:0.8rem">
+            Test Key
+          </button>
+          <span id="validate-status" class="validate-status"></span>
+        </div>
+      </div>
+
+      <div class="settings-field">
+        <label for="select-model" class="field-label">Text Generation Model</label>
+        <select id="select-model" class="select">
+          <option value="gemini-3.5-flash">Gemini 3.5 Flash — Fast, coding &amp; agentic workflows (Recommended)</option>
+          <option value="gemini-3.1-pro">Gemini 3.1 Pro — Complex reasoning &amp; multi-step planning</option>
+          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite — High-volume, low-latency &amp; cost-efficient</option>
+        </select>
+      </div>
+
+      <div class="settings-field">
+        <label for="select-image-model" class="field-label">Image Generation Model</label>
+        <select id="select-image-model" class="select">
+          <option value="gemini-3.1-flash-image">Nano Banana 2 — Fast visual creation &amp; editing (Recommended)</option>
+          <option value="gemini-3-pro-image">Nano Banana Pro — Professional, complex compositions, up to 4K</option>
+        </select>
+        <div class="validate-row" style="margin-top:8px; flex-wrap:wrap; gap:8px;">
+          <button id="btn-test-image" class="btn btn-secondary" style="padding:8px 16px;font-size:0.8rem">
+            🖼 Test Image
+          </button>
+          <span id="image-test-status" class="validate-status"></span>
+        </div>
+        <div id="image-test-preview" style="margin-top:10px; display:none;">
+          <img id="image-test-img" style="width:100%; border-radius:8px; border:1px solid var(--border);" alt="Test image">
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <button id="btn-save-settings" class="btn btn-primary w-full">
+        Save Settings
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 3 — ADVENTURES LIST
+       ══════════════════════════════════════════════════════════ -->
+  <div id="screen-adventures" class="screen" role="main" style="flex-direction:column; align-items:center; padding:2rem 1.5rem;">
+    <div class="adventures-header">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="back-link" id="btn-back-adventures" style="margin:0" aria-label="Back to home">← Back</button>
+        <h1 class="screen-title" style="margin:0; font-size:1.5rem;">📚 My <span>Adventures</span></h1>
+      </div>
+      <button class="btn btn-primary" id="btn-adventures-new" aria-label="Create new adventure">
+        ✨ New Adventure
+      </button>
+    </div>
+
+    <div id="adventures-grid" class="adventures-grid" role="list" aria-label="Saved adventures">
+      <!-- Cards injected by JS -->
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 4 — GENERATE
+       ══════════════════════════════════════════════════════════ -->
+  <div id="screen-generate" class="screen" role="main" style="flex-direction:column; align-items:center; padding:2rem 1.5rem; gap:1.5rem;">
+
+    <div style="width:100%;max-width:1300px;display:flex;align-items:center;gap:12px;">
+      <button class="back-link" id="btn-back-generate" style="margin:0" aria-label="Back to home">← Back</button>
+      <h1 class="screen-title" style="margin:0; font-size:1.5rem;">✨ <span>Generate</span> Adventure</h1>
+    </div>
+
+    <div class="generate-layout" style="width:100%;max-width:1300px;">
+
+      <!-- Left: form -->
+      <div class="glass gen-form-card">
+
+        <div class="gen-field">
+          <label for="gen-desc" class="field-label">Describe your adventure</label>
+          <textarea id="gen-desc" class="textarea" rows="5"
+            placeholder="A cursed pirate ship drifting through a sea of stars, filled with undead sailors and a legendary treasure guarded by a kraken…"></textarea>
+        </div>
+
+        <div class="gen-field">
+          <label class="field-label">Style</label>
+          <div class="chip-group" id="style-chips" role="group" aria-label="Adventure styles">
+            <div class="chip active"  role="checkbox" aria-checked="true"  tabindex="0">Fantasy</div>
+            <div class="chip"         role="checkbox" aria-checked="false" tabindex="0">Sci-Fi</div>
+            <div class="chip"         role="checkbox" aria-checked="false" tabindex="0">Horror</div>
+            <div class="chip"         role="checkbox" aria-checked="false" tabindex="0">Mystery</div>
+            <div class="chip"         role="checkbox" aria-checked="false" tabindex="0">Steampunk</div>
+            <div class="chip"         role="checkbox" aria-checked="false" tabindex="0">Post-Apocalyptic</div>
+            <div class="chip"         role="checkbox" aria-checked="false" tabindex="0">Cosmic Horror</div>
+            <div class="chip"         role="checkbox" aria-checked="false" tabindex="0">Dark Fantasy</div>
+          </div>
+        </div>
+
+        <div class="gen-field" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label for="gen-num-doors" class="field-label">Locked Doors</label>
+            <select id="gen-num-doors" class="select">
+              <option value="1">1 Door (approx. 4-6 rooms)</option>
+              <option value="2" selected>2 Doors (approx. 7-10 rooms)</option>
+              <option value="3">3 Doors (approx. 10-14 rooms)</option>
+              <option value="4">4 Doors (approx. 13-18 rooms)</option>
+            </select>
+          </div>
+          <div>
+            <label for="gen-difficulty" class="field-label">Difficulty</label>
+            <select id="gen-difficulty" class="select">
+              <option value="Easy">Easy</option>
+              <option value="Normal" selected>Normal</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="btn-generate" class="btn btn-primary w-full" style="margin-top:0.5rem">
+          ✨ Generate Adventure
+        </button>
+
+        <!-- Progress -->
+        <div class="gen-progress" id="gen-progress">
+          <div class="gen-progress-text" id="gen-progress-text">Starting…</div>
+          <div class="progress-track">
+            <div class="progress-fill" id="gen-progress-fill" style="width:0%"></div>
+          </div>
+          <div class="gen-step-list" id="gen-step-list"></div>
+        </div>
+      </div>
+
+      <!-- Right: preview -->
+      <div class="glass gen-preview-card">
+
+        <div id="gen-preview-empty" class="gen-preview-empty">
+          <span class="emoji">🗺️</span>
+          <p>Your generated adventure<br>will appear here</p>
+        </div>
+
+        <div id="gen-preview-section" class="gen-preview-section">
+          <h2 id="gen-adventure-title" class="screen-title" style="text-align:left; margin-bottom:0.5rem; font-size:1.4rem"></h2>
+          <p id="gen-goal-text" style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:1rem; padding:8px 12px; background:rgba(99,102,241,0.07); border-radius:var(--radius-sm); border-left:3px solid var(--indigo)"></p>
+
+          <div class="gen-map-container" id="gen-map-container"></div>
+
+          <!-- Stage 1: Layout / Topology -->
+          <div id="gen-stage-1">
+            <h3 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Stage 1: World Topology</h3>
+            <div class="gen-actions" style="margin-top: 1rem; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button id="btn-approve-layout" class="btn btn-primary" style="flex: 1 1 auto; min-width: 200px;">Approve Layout &amp; Generate Areas</button>
+              <button id="btn-regenerate-groups" class="btn btn-secondary" style="flex: 0 0 auto;">🔄 Regroup</button>
+              <button id="btn-regenerate-layout" class="btn btn-ghost" style="flex: 0 0 auto;">🔄 Regenerate</button>
+            </div>
+          </div>
+
+          <!-- Stage 2: Locational Groups -->
+          <div id="gen-stage-2" style="display:none;">
+            <h3 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; margin-top:1rem;">Stage 2: Locational Groups</h3>
+            <div class="groups-preview-container" id="gen-groups-preview" style="margin-top:1rem; display:flex; flex-direction:column; gap:12px;"></div>
+            <div class="gen-actions" style="margin-top: 1rem;">
+              <button id="btn-approve-groups" class="btn btn-primary" style="flex:1">Approve Areas &amp; Define Verticality</button>
+            </div>
+          </div>
+
+          <!-- Stage 3: Verticality & Floors -->
+          <div id="gen-stage-3" style="display:none;">
+            <h3 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; margin-top:1rem;">Stage 3: Verticality &amp; Floors</h3>
+            <div class="verticality-preview-container" id="gen-verticality-preview" style="margin-top:1rem; display:flex; flex-direction:column; gap:12px;"></div>
+            <div class="gen-actions" style="margin-top: 1rem;">
+              <button id="btn-approve-verticality" class="btn btn-primary" style="flex:1">Approve Floors &amp; Generate Flavor</button>
+            </div>
+          </div>
+
+          <!-- Stage 4: Flavor -->
+          <div id="gen-stage-4" style="display:none;">
+            <h3 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; margin-top:1rem;">Stage 4: Thematic Flavor</h3>
+            <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:1rem;">The map has been updated with thematic names and icons!</p>
+            <div class="gen-actions" style="margin-top: 1rem;">
+              <button id="btn-approve-flavor" class="btn btn-primary" style="flex:1">Approve Names &amp; Generate Text</button>
+            </div>
+          </div>
+
+          <!-- Stage 5: Text -->
+          <div id="gen-stage-5" style="display:none;">
+            <h3 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; margin-top:1rem;">Stage 5: Text &amp; Descriptions</h3>
+            <div class="text-preview-container" id="gen-text-preview" style="max-height: 400px; overflow-y: auto; padding-right: 10px;"></div>
+            <div class="gen-actions" style="margin-top: 1rem;">
+              <button id="btn-approve-text" class="btn btn-primary" style="flex:1">Approve Text &amp; Generate Images</button>
+            </div>
+          </div>
+
+          <!-- Stage 6: Images -->
+          <div id="gen-stage-6" style="display:none;">
+            <h3 style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; margin-top:1rem;">Stage 6: Final Artwork</h3>
+            <div class="location-preview-grid" id="gen-location-cards"></div>
+            <div class="gen-actions" style="margin-top: 1rem;">
+              <button id="btn-save-adventure" class="btn btn-primary" style="flex:1">💾 Save &amp; Play</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 5 — PLAY
+       ══════════════════════════════════════════════════════════ -->
+  <div id="screen-play" class="screen" role="main" style="flex-direction:column; overflow:hidden; height:100vh;">
+
+    <!-- Top bar -->
+    <header class="play-topbar" role="banner">
+      <div class="play-title" id="play-title">Adventure</div>
+      
+      <div class="topbar-health">
+        <div class="health-label">
+          <span>Health</span>
+          <span class="health-value" id="health-value">100 / 100</span>
+        </div>
+        <div class="health-track">
+          <div class="health-fill high" id="health-fill" style="width:100%"></div>
+        </div>
+      </div>
+
+      <div class="play-topbar-actions">
+        <button id="btn-play-save" class="btn btn-ghost btn-icon" title="Save game" aria-label="Save game">💾</button>
+        <button id="btn-play-menu" class="btn btn-ghost" title="Back to menu" aria-label="Back to menu" style="font-size:0.8rem">☰ Menu</button>
+      </div>
+    </header>
+
+    <!-- Main layout -->
+    <div class="play-layout">
+
+      <!-- ─── Left: main game panel ─────────────────────────── -->
+      <main class="play-main">
+
+        <!-- Location image -->
+        <div class="location-image-container" id="location-image-container" role="img" aria-label="Current location image">
+          <div class="location-image-placeholder" style="background:linear-gradient(135deg,#1e1e3f,#2d2d6b); width:100%; height:100%">🏛</div>
+          <div class="location-image-overlay"></div>
+          <div class="location-name-badge" id="location-name-badge">Loading…</div>
+        </div>
+
+        <!-- Location description -->
+        <section class="location-desc-box" aria-label="Location description">
+          <p class="location-desc-text" id="location-desc-text">…</p>
+        </section>
+
+        <!-- Chat messages -->
+        <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-label="Game messages">
+          <!-- Messages injected by JS -->
+        </div>
+
+        <!-- Chat input -->
+        <form class="chat-input-bar" id="chat-form" role="search" onsubmit="return false">
+          <input
+            type="text"
+            id="chat-input"
+            class="chat-input"
+            placeholder="What do you do? (e.g. go north, pick up torch, talk to guard…)"
+            autocomplete="off"
+            aria-label="Game command input"
+          >
+          <button id="btn-send" class="btn btn-primary" style="padding:10px 20px" aria-label="Send command">
+            Send
+          </button>
+        </form>
+
+      </main>
+
+      <!-- ─── Right: sidebar ────────────────────────────────── -->
+      <aside class="play-sidebar" aria-label="Player status">
+
+        <!-- Inventory -->
+        <section class="sidebar-section">
+          <div class="sidebar-section-title">Inventory</div>
+          <div class="inventory-list" id="inventory-list" role="list" aria-label="Inventory items">
+            <div class="inv-empty">Nothing yet…</div>
+          </div>
+        </section>
+
+
+
+        <!-- Movement Controls -->
+        <section class="sidebar-section" style="flex:1; display:flex; flex-direction:column; align-items:center;">
+          <div class="sidebar-section-title" style="align-self:flex-start;">Movement</div>
+          <div class="compass-container" aria-label="Movement controls">
+            <div class="compass-vertical">
+              <button class="compass-btn" data-dir="up" aria-label="Go Up" disabled>▲<br>UP</button>
+              <button class="compass-btn" data-dir="down" aria-label="Go Down" disabled>▼<br>DOWN</button>
+            </div>
+            <div class="compass-rose">
+              <button class="compass-btn dir-n" data-dir="north" aria-label="Go North" disabled>N</button>
+              <button class="compass-btn dir-w" data-dir="west" aria-label="Go West" disabled>W</button>
+              <button class="compass-btn dir-s" data-dir="south" aria-label="Go South" disabled>S</button>
+              <button class="compass-btn dir-e" data-dir="east" aria-label="Go East" disabled>E</button>
+              <div class="compass-center"></div>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+    </div>
+
+    <!-- Win overlay -->
+    <div id="overlay-win" class="game-overlay overlay-win" role="dialog" aria-modal="true" aria-label="Victory!">
+      <div class="overlay-content">
+        <div class="overlay-icon">🏆</div>
+        <h2 class="overlay-title">Victory!</h2>
+        <p class="overlay-subtitle">You have conquered the adventure and emerged triumphant. The legend of your deeds will echo through the ages.</p>
+        <div class="overlay-actions">
+          <button id="btn-win-menu"    class="btn btn-secondary">📚 Adventures</button>
+          <button id="btn-win-restart" class="btn btn-ghost">🔄 Play Again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lose overlay -->
+    <div id="overlay-lose" class="game-overlay overlay-lose" role="dialog" aria-modal="true" aria-label="Game Over">
+      <div class="overlay-content">
+        <div class="overlay-icon">💀</div>
+        <h2 class="overlay-title">Game Over</h2>
+        <p class="overlay-subtitle">Your journey ends here, consumed by darkness. But every hero falls before they can rise again.</p>
+        <div class="overlay-actions">
+          <button id="btn-lose-restart" class="btn btn-primary">🔄 Try Again</button>
+          <button id="btn-lose-menu"    class="btn btn-ghost">📚 Adventures</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end screen-play -->
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCRIPTS (order matters — dependencies first)
+       ══════════════════════════════════════════════════════════ -->
+  <script src="js/storage.js?v=2"></script>
+  <script src="js/api.js?v=2"></script>
+  <script src="js/mapRenderer.js?v=2"></script>
+  <script src="js/engine.js?v=2"></script>
+  <script src="js/gameChat.js?v=2"></script>
+  <script src="js/generator.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
+
+  <script>
+    // Keyboard accessibility for chip toggles
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          chip.classList.toggle('active');
+          chip.setAttribute('aria-checked', chip.classList.contains('active'));
+        }
+      });
+    });
+
+    // Adventures screen "New Adventure" button
+    document.getElementById('btn-adventures-new')?.addEventListener('click', () => {
+      if (!Storage.getSetting('apiKey', '')) {
+        showToast('Please set your API key in Settings first', 'error');
+        showScreen('settings');
+        return;
+      }
+      showScreen('generate');
+    });
+  </script>
+
+</body>
+</html>
