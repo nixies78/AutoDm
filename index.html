@@ -413,15 +413,24 @@
   <!-- ══════════════════════════════════════════════════════════
        SCRIPTS (order matters — dependencies first)
        ══════════════════════════════════════════════════════════ -->
-  <script src="js/storage.js?v=3"></script>
-  <script src="js/api.js?v=3"></script>
-  <script src="js/mapRenderer.js?v=3"></script>
-  <script src="js/engine.js?v=3"></script>
-  <script src="js/gameChat.js?v=3"></script>
-  <script src="js/generator.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/storage.js?v=4"></script>
+  <script src="js/api.js?v=4"></script>
+  <script src="js/mapRenderer.js?v=4"></script>
+  <script src="js/engine.js?v=4"></script>
+  <script src="js/gameChat.js?v=4"></script>
+  <script src="js/generator.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 
   <script>
+    // Global error listener to help debug runtime errors easily
+    window.onerror = function(message, source, lineno, colno, error) {
+      const errText = `JS Error: ${message} at ${source}:${lineno}`;
+      console.error(errText, error);
+      if (typeof showToast === 'function') {
+        showToast(errText, 'error', 10000);
+      }
+    };
+
     // Keyboard accessibility for chip toggles
     document.querySelectorAll('.chip').forEach(chip => {
       chip.addEventListener('keydown', e => {

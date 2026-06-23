@@ -373,27 +373,25 @@ CRITICAL RULES:
 Respond with ONLY valid JSON matching this schema:
 {
   "puzzleSuggestions": {
-    "LOCK_INDEX": [
-      {
-        "type": "Traditional Lock & Key | Single Item Bypass | Information/Clues | Multi-Key Combination | Remote Action | NPC Interaction | Hidden Entrance",
-        "obstacle": "Detailed description of the obstacle blocking the passage",
-        "keys": [
-          {
-            "description": "What the player must find/do/learn for this key component",
-            "kind": "item | knowledge | npc | action",
-            "originalKeyId": "The exact originalKeyId matching the item_key_X_partY ID from the prompt"
-          }
-        ]
-      }
-    ]
-  }
-}
-
-Here are the exact originalKeyIds to use for each lock:
 ${locks.map(lock => {
-  const ids = lock.keyLocations.map(kl => kl.keyId);
-  return `- Lock #${lock.lockIndex}: Use originalKeyId values: ${JSON.stringify(ids)}`;
-}).join('\n')}`;
+  const keySchema = lock.numKeys > 1
+    ? `[
+              { "description": "Description of first key component", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}" },
+              { "description": "Description of second key component", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[1]?.keyId || 'item_key_' + lock.lockIndex + '_part2'}" }
+            ]`
+    : `[
+              { "description": "Description of the single key component", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}" }
+            ]`;
+  return `    "${lock.lockIndex}": [
+      { "type": "Traditional Lock & Key | Single Item Bypass | Information/Clues | Multi-Key Combination | Remote Action | NPC Interaction | Hidden Entrance", "obstacle": "obstacle description", "keys": ${keySchema} },
+      { "type": "Traditional Lock & Key | Single Item Bypass | Information/Clues | Multi-Key Combination | Remote Action | NPC Interaction | Hidden Entrance", "obstacle": "obstacle description", "keys": ${keySchema} },
+      { "type": "Traditional Lock & Key | Single Item Bypass | Information/Clues | Multi-Key Combination | Remote Action | NPC Interaction | Hidden Entrance", "obstacle": "obstacle description", "keys": ${keySchema} },
+      { "type": "Traditional Lock & Key | Single Item Bypass | Information/Clues | Multi-Key Combination | Remote Action | NPC Interaction | Hidden Entrance", "obstacle": "obstacle description", "keys": ${keySchema} },
+      { "type": "Traditional Lock & Key | Single Item Bypass | Information/Clues | Multi-Key Combination | Remote Action | NPC Interaction | Hidden Entrance", "obstacle": "obstacle description", "keys": ${keySchema} }
+    ]`;
+}).join(',\n')}
+  }
+}`;
 
     const systemInstruction =
 `You are a professional game designer. Your task is to output exactly 5 diverse and creative puzzle suggestions for each lock in the requested JSON structure.

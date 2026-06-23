@@ -570,30 +570,48 @@ async function runGenerationStage4() {
               </div>
             </div>
             <div class="puzzle-options">
-              ${lockSugs.map((sug, idx) => {
-                const badgeColor = typeBadgeColors[sug.type] || '#a855f7';
-                return `
-                  <label class="puzzle-option" data-lock="${lock.lockIndex}" data-idx="${idx}">
-                    <input type="radio" name="puzzle-lock-${lock.lockIndex}" value="${idx}" ${idx === 0 ? 'checked' : ''}>
-                    <div class="puzzle-option-content">
-                      <div class="puzzle-option-header">
-                        <span class="puzzle-type-badge" style="--badge-color: ${badgeColor};">${sug.type}</span>
+              ${(() => {
+                const sugs = Array.isArray(lockSugs) ? lockSugs : [];
+                return sugs.map((sug, idx) => {
+                  if (!sug) return '';
+                  const type = sug.type || 'Puzzle Option';
+                  const obstacle = sug.obstacle || '';
+                  const badgeColor = typeBadgeColors[type] || '#a855f7';
+                  
+                  // Resilient keys processing
+                  let keysHtml = '';
+                  if (sug.keys) {
+                    const keysArr = Array.isArray(sug.keys) ? sug.keys : [sug.keys];
+                    keysHtml = keysArr.map(key => {
+                      if (!key) return '';
+                      const kind = (typeof key === 'object' && key.kind) ? key.kind : 'item';
+                      const desc = (typeof key === 'object' && key.description) ? key.description : String(key);
+                      return `
+                        <div class="puzzle-key">
+                          <span class="puzzle-key-kind">${kindIcons[kind] || '❓'} ${kindLabels[kind] || kind}</span>
+                          <span class="puzzle-key-desc">${desc}</span>
+                        </div>`;
+                    }).join('');
+                  }
+
+                  return `
+                    <label class="puzzle-option" data-lock="${lock.lockIndex}" data-idx="${idx}">
+                      <input type="radio" name="puzzle-lock-${lock.lockIndex}" value="${idx}" ${idx === 0 ? 'checked' : ''}>
+                      <div class="puzzle-option-content">
+                        <div class="puzzle-option-header">
+                          <span class="puzzle-type-badge" style="--badge-color: ${badgeColor};">${type}</span>
+                        </div>
+                        <div class="puzzle-obstacle">
+                          <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;">Obstacle:</span>
+                          ${obstacle}
+                        </div>
+                        <div class="puzzle-keys">
+                          ${keysHtml}
+                        </div>
                       </div>
-                      <div class="puzzle-obstacle">
-                        <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;">Obstacle:</span>
-                        ${sug.obstacle}
-                      </div>
-                      <div class="puzzle-keys">
-                        ${(sug.keys || []).map(key => `
-                          <div class="puzzle-key">
-                            <span class="puzzle-key-kind">${kindIcons[key.kind] || '❓'} ${kindLabels[key.kind] || key.kind}</span>
-                            <span class="puzzle-key-desc">${key.description}</span>
-                          </div>
-                        `).join('')}
-                      </div>
-                    </div>
-                  </label>`;
-              }).join('')}
+                    </label>`;
+                }).join('');
+              })()}
             </div>
           </div>`;
       }).join('');
