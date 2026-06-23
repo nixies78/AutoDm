@@ -370,27 +370,28 @@ CRITICAL RULES:
 5. The 5 suggestions for each lock must be a DIVERSE MIX of the puzzle types listed above. Do not repeat the same type twice in the same lock's suggestions.
 6. Keep descriptions concise — max 2 sentences for obstacle, max 1 sentence per key component.
 
-Respond with ONLY valid JSON matching this schema:
+Respond with ONLY valid JSON matching this schema.
+IMPORTANT: Each lock's array MUST contain exactly 5 objects. Do NOT return only 1.
+
 {
   "puzzleSuggestions": {
-${locks.map(lock => `    "${lock.lockIndex}": [
-      {
-        "type": "Puzzle Type Name",
-        "obstacle": "Description of what blocks the way",
-        "keys": [
-          {
-            "description": "What the player must find/do/learn",
-            "kind": "item|knowledge|npc|action",
-            "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}"
-          }${lock.numKeys > 1 ? `,
-          {
-            "description": "Second component the player needs",
-            "kind": "item|knowledge|npc|action",
-            "originalKeyId": "${lock.keyLocations[1]?.keyId || 'item_key_' + lock.lockIndex + '_part2'}"
-          }` : ''}
-        ]
-      }
-    ]`).join(',\n')}
+${locks.map(lock => {
+  const keySchema = lock.numKeys > 1
+    ? `[
+              { "description": "First component", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}" },
+              { "description": "Second component", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[1]?.keyId || 'item_key_' + lock.lockIndex + '_part2'}" }
+            ]`
+    : `[
+              { "description": "What the player must find/do/learn", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}" }
+            ]`;
+  return `    "${lock.lockIndex}": [
+      { "type": "Suggestion 1 type", "obstacle": "...", "keys": ${keySchema} },
+      { "type": "Suggestion 2 type", "obstacle": "...", "keys": ${keySchema} },
+      { "type": "Suggestion 3 type", "obstacle": "...", "keys": ${keySchema} },
+      { "type": "Suggestion 4 type", "obstacle": "...", "keys": ${keySchema} },
+      { "type": "Suggestion 5 type", "obstacle": "...", "keys": ${keySchema} }
+    ]`;
+}).join(',\n')}
   }
 }`;
 
