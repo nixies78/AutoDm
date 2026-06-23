@@ -297,8 +297,8 @@ function setupGenerate() {
   document.getElementById('btn-approve-layout').addEventListener('click', runGenerationStage2);
   document.getElementById('btn-approve-groups')?.addEventListener('click', runGenerationStage3);
   document.getElementById('btn-approve-verticality')?.addEventListener('click', runGenerationStage4);
-  document.getElementById('btn-approve-flavor').addEventListener('click', runGenerationStage5);
-  document.getElementById('btn-approve-puzzles')?.addEventListener('click', runGenerationStage6);
+  document.getElementById('btn-approve-puzzles')?.addEventListener('click', runGenerationStage5);
+  document.getElementById('btn-approve-flavor').addEventListener('click', runGenerationStage6);
   document.getElementById('btn-approve-text').addEventListener('click', runGenerationStage7);
   document.getElementById('btn-save-adventure').addEventListener('click', saveGeneratedAdventure);
 }
@@ -527,43 +527,6 @@ async function runGenerationStage4() {
   };
 
   try {
-    const adventure = await currentGenerator.generateFlavor(generatedAdventure);
-    generatedAdventure = adventure;
-    
-    // Set title and goal
-    document.getElementById('gen-adventure-title').textContent = adventure.title;
-    document.getElementById('gen-goal-text').textContent = adventure.goal || '';
-
-    // Re-render map with flavor names
-    if (previewMapRenderer) {
-      previewMapRenderer.render(adventure);
-    }
-
-    document.getElementById('gen-stage-3').style.display = 'none';
-    document.getElementById('gen-stage-4').style.display = 'block';
-    showToast(`Thematic flavor applied!`, 'success', 3000);
-  } catch (err) {
-    showToast('Flavor generation failed: ' + err.message, 'error', 6000);
-    console.error(err);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function runGenerationStage5() {
-  if (!generatedAdventure || !currentGenerator) return;
-  const btn = document.getElementById('btn-approve-flavor');
-  btn.disabled = true;
-
-  const progressFill = document.getElementById('gen-progress-fill');
-  const progressText = document.getElementById('gen-progress-text');
-  
-  currentGenerator.onProgress = (done, total, message) => {
-    progressFill.style.width = '65%';
-    progressText.textContent = message;
-  };
-
-  try {
     const adventure = await currentGenerator.generatePuzzles(generatedAdventure);
     generatedAdventure = adventure;
 
@@ -639,8 +602,8 @@ async function runGenerationStage5() {
     // Show map alongside puzzles
     document.getElementById('gen-map-container').style.display = 'block';
 
-    document.getElementById('gen-stage-4').style.display = 'none';
-    document.getElementById('gen-stage-5').style.display = 'block';
+    document.getElementById('gen-stage-3').style.display = 'none';
+    document.getElementById('gen-stage-4').style.display = 'block';
     showToast(`Puzzle suggestions generated!`, 'success', 3000);
   } catch (err) {
     showToast('Puzzle generation failed: ' + err.message, 'error', 6000);
@@ -650,7 +613,7 @@ async function runGenerationStage5() {
   }
 }
 
-async function runGenerationStage6() {
+async function runGenerationStage5() {
   if (!generatedAdventure || !currentGenerator) return;
   const btn = document.getElementById('btn-approve-puzzles');
   btn.disabled = true;
@@ -667,6 +630,43 @@ async function runGenerationStage6() {
     if (chosen) selectedPuzzles[lock.lockIndex] = chosen;
   }
   generatedAdventure.selectedPuzzles = selectedPuzzles;
+
+  const progressFill = document.getElementById('gen-progress-fill');
+  const progressText = document.getElementById('gen-progress-text');
+  
+  currentGenerator.onProgress = (done, total, message) => {
+    progressFill.style.width = '65%';
+    progressText.textContent = message;
+  };
+
+  try {
+    const adventure = await currentGenerator.generateFlavor(generatedAdventure);
+    generatedAdventure = adventure;
+    
+    // Set title and goal
+    document.getElementById('gen-adventure-title').textContent = adventure.title;
+    document.getElementById('gen-goal-text').textContent = adventure.goal || '';
+
+    // Re-render map with flavor names
+    if (previewMapRenderer) {
+      previewMapRenderer.render(adventure);
+    }
+
+    document.getElementById('gen-stage-4').style.display = 'none';
+    document.getElementById('gen-stage-5').style.display = 'block';
+    showToast(`Thematic flavor applied!`, 'success', 3000);
+  } catch (err) {
+    showToast('Flavor generation failed: ' + err.message, 'error', 6000);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function runGenerationStage6() {
+  if (!generatedAdventure || !currentGenerator) return;
+  const btn = document.getElementById('btn-approve-flavor');
+  btn.disabled = true;
 
   const progressFill = document.getElementById('gen-progress-fill');
   const progressText = document.getElementById('gen-progress-text');
