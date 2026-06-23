@@ -364,38 +364,42 @@ PUZZLE TYPE VOCABULARY (use these as categories):
 
 CRITICAL RULES:
 1. All suggestions MUST be thematically appropriate for the SETTING and STYLE. Do NOT use generic fantasy tropes if the setting is sci-fi, post-apocalyptic, etc.
-2. If a lock requires 2 keys, every suggestion for that lock must require exactly 2 separate components (two items, or an item + knowledge, etc.).
-3. If a lock requires 1 key, every suggestion must require exactly 1 component.
-4. Each lock must receive exactly 5 suggestions.
-5. The 5 suggestions for each lock must be a DIVERSE MIX of the puzzle types listed above. Do not repeat the same type twice in the same lock's suggestions.
+2. If a lock requires 2 keys, every suggestion for that lock must require exactly 2 separate solution components (two items, or an item + knowledge, etc.).
+3. If a lock requires 1 key, every suggestion must require exactly 1 solution component.
+4. You MUST generate exactly 5 distinct, diverse suggestions for each lock.
+5. The 5 suggestions for each lock must cover 5 different puzzle types from the vocabulary. Do not repeat the same type twice for the same lock.
 6. Keep descriptions concise — max 2 sentences for obstacle, max 1 sentence per key component.
 
-Respond with ONLY valid JSON matching this schema.
-IMPORTANT: Each lock's array MUST contain exactly 5 objects. Do NOT return only 1.
-
+Respond with ONLY valid JSON matching this schema:
 {
   "puzzleSuggestions": {
-${locks.map(lock => {
-  const keySchema = lock.numKeys > 1
-    ? `[
-              { "description": "First component", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}" },
-              { "description": "Second component", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[1]?.keyId || 'item_key_' + lock.lockIndex + '_part2'}" }
-            ]`
-    : `[
-              { "description": "What the player must find/do/learn", "kind": "item|knowledge|npc|action", "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}" }
-            ]`;
-  return `    "${lock.lockIndex}": [
-      { "type": "Suggestion 1 type", "obstacle": "...", "keys": ${keySchema} },
-      { "type": "Suggestion 2 type", "obstacle": "...", "keys": ${keySchema} },
-      { "type": "Suggestion 3 type", "obstacle": "...", "keys": ${keySchema} },
-      { "type": "Suggestion 4 type", "obstacle": "...", "keys": ${keySchema} },
-      { "type": "Suggestion 5 type", "obstacle": "...", "keys": ${keySchema} }
-    ]`;
-}).join(',\n')}
+    "LOCK_INDEX": [
+      {
+        "type": "Traditional Lock & Key | Single Item Bypass | Information/Clues | Multi-Key Combination | Remote Action | NPC Interaction | Hidden Entrance",
+        "obstacle": "Detailed description of the obstacle blocking the passage",
+        "keys": [
+          {
+            "description": "What the player must find/do/learn for this key component",
+            "kind": "item | knowledge | npc | action",
+            "originalKeyId": "The exact originalKeyId matching the item_key_X_partY ID from the prompt"
+          }
+        ]
+      }
+    ]
   }
-}`;
+}
 
-    const raw = await this.api.generateText(prompt, null, true);
+Here are the exact originalKeyIds to use for each lock:
+${locks.map(lock => {
+  const ids = lock.keyLocations.map(kl => kl.keyId);
+  return `- Lock #${lock.lockIndex}: Use originalKeyId values: ${JSON.stringify(ids)}`;
+}).join('\n')}`;
+
+    const systemInstruction =
+`You are a professional game designer. Your task is to output exactly 5 diverse and creative puzzle suggestions for each lock in the requested JSON structure.
+You must return exactly 5 suggestions in the array for each lock. Never return fewer than 5.`;
+
+    const raw = await this.api.generateText(prompt, systemInstruction, true);
     const result = GeminiAPI.parseJSON(raw, 'Puzzle suggestions');
     adventure.puzzleSuggestions = result.puzzleSuggestions || {};
     adventure.lockAnalysis = locks;
