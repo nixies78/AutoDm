@@ -290,6 +290,117 @@ Respond with ONLY valid JSON:
     return adventure;
   }
 
+  async generatePuzzles(adventure) {
+    if (this.onProgress) this.onProgress(1, 1, 'Designing puzzles and obstacles…');
+
+    // Analyze locked connections and key counts
+    const lockedConns = (adventure.connections || []).filter(c => c.type === 'locked');
+    const locks = [];
+
+    for (const conn of lockedConns) {
+      const lockIndex = conn.lockIndex;
+      if (!lockIndex) continue;
+      // Already processed this lockIndex?
+      if (locks.some(l => l.lockIndex === lockIndex)) continue;
+
+      // Count key parts for this lock
+      const keyParts = (adventure.items || []).filter(
+        item => item.id.startsWith(`item_key_${lockIndex}_`)
+      );
+
+      // Find rooms on either side of the locked connection
+      const fromLoc = adventure.locations.find(l => l.id === conn.from);
+      const toLoc   = adventure.locations.find(l => l.id === conn.to);
+
+      // Find which rooms hold the keys
+      const keyLocations = keyParts.map(kp => {
+        const room = adventure.locations.find(loc => (loc.items || []).includes(kp.id));
+        return {
+          keyId: kp.id,
+          keyName: kp.name,
+          roomId: room?.id || 'unknown',
+          roomName: room?.name || 'Unknown Room'
+        };
+      });
+
+      locks.push({
+        lockIndex,
+        numKeys: keyParts.length,
+        direction: conn.direction,
+        fromRoom: { id: fromLoc?.id, name: fromLoc?.name || `Room` },
+        toRoom:   { id: toLoc?.id,   name: toLoc?.name || `Room` },
+        keyLocations
+      });
+    }
+
+    locks.sort((a, b) => a.lockIndex - b.lockIndex);
+
+    const lockDescriptions = locks.map(lock => {
+      const keyInfo = lock.keyLocations.map(kl =>
+        `"${kl.keyName}" found in "${kl.roomName}"`
+      ).join(', ');
+      return `Lock #${lock.lockIndex}: Blocks passage from "${lock.fromRoom.name}" heading ${lock.direction} to "${lock.toRoom.name}". ` +
+             `Requires ${lock.numKeys} key(s): ${keyInfo}.`;
+    }).join('\n');
+
+    const prompt =
+`You are designing puzzles for a text adventure game. Each "locked door" on the map represents an obstacle or puzzle, and each "key" is a location the player must visit to find an item, action, or clue to solve that puzzle.
+
+SETTING: ${adventure.setting || adventure.configDesc || 'A mystery adventure'}
+MISSION: ${adventure.mission || adventure.goal || 'Complete the adventure'}
+STYLE:   ${(adventure.styles || []).join(', ')}
+
+LOCKED DOORS TO DESIGN PUZZLES FOR:
+${lockDescriptions}
+
+PUZZLE TYPE VOCABULARY (use these as categories):
+- Traditional Lock & Key: A physical lock needing a physical key, passcard, or similar.
+- Single Item Bypass: An environmental obstacle (toxic gas, chained gate, flooded room) that one specific item solves (gas mask, bolt cutters, diving gear).
+- Information/Clues: A combination, password, or hidden knowledge is the "key". The player learns it from a diary, inscription, or NPC — no physical item needed.
+- Multi-Key Combination: The obstacle requires multiple components used together (e.g., knowledge of which wire to cut + wire cutters, or a fuse + a circuit breaker).
+- Remote Action: The "key" is used somewhere else, not at the door itself (e.g., restoring power at a breaker box to light up a dark room elsewhere).
+- NPC Interaction: An NPC holds the key, blocks the way, or provides critical information. The player must talk, trade, or convince them.
+- Hidden Entrance: The passage itself is hidden. The "key" is discovering its location through clues, maps, or exploration.
+
+CRITICAL RULES:
+1. All suggestions MUST be thematically appropriate for the SETTING and STYLE. Do NOT use generic fantasy tropes if the setting is sci-fi, post-apocalyptic, etc.
+2. If a lock requires 2 keys, every suggestion for that lock must require exactly 2 separate components (two items, or an item + knowledge, etc.).
+3. If a lock requires 1 key, every suggestion must require exactly 1 component.
+4. Each lock must receive exactly 5 suggestions.
+5. The 5 suggestions for each lock must be a DIVERSE MIX of the puzzle types listed above. Do not repeat the same type twice in the same lock's suggestions.
+6. Keep descriptions concise — max 2 sentences for obstacle, max 1 sentence per key component.
+
+Respond with ONLY valid JSON matching this schema:
+{
+  "puzzleSuggestions": {
+${locks.map(lock => `    "${lock.lockIndex}": [
+      {
+        "type": "Puzzle Type Name",
+        "obstacle": "Description of what blocks the way",
+        "keys": [
+          {
+            "description": "What the player must find/do/learn",
+            "kind": "item|knowledge|npc|action",
+            "originalKeyId": "${lock.keyLocations[0]?.keyId || 'item_key_' + lock.lockIndex + '_part1'}"
+          }${lock.numKeys > 1 ? `,
+          {
+            "description": "Second component the player needs",
+            "kind": "item|knowledge|npc|action",
+            "originalKeyId": "${lock.keyLocations[1]?.keyId || 'item_key_' + lock.lockIndex + '_part2'}"
+          }` : ''}
+        ]
+      }
+    ]`).join(',\n')}
+  }
+}`;
+
+    const raw = await this.api.generateText(prompt, null, true);
+    const result = GeminiAPI.parseJSON(raw, 'Puzzle suggestions');
+    adventure.puzzleSuggestions = result.puzzleSuggestions || {};
+    adventure.lockAnalysis = locks;
+    return adventure;
+  }
+
   async generateDetails(adventure) {
     let step = 0;
     const total = adventure.locations.length;

@@ -283,6 +283,66 @@ const GeminiAPI = (() => {
       });
     }
 
+    if (userPrompt.includes('designing puzzles for a text adventure') || userPrompt.includes('PUZZLE TYPE VOCABULARY')) {
+      // Extract lock indices from the prompt
+      const lockMatches = [...userPrompt.matchAll(/Lock #(\d+):/g)];
+      const lockIndices = lockMatches.map(m => parseInt(m[1]));
+      if (lockIndices.length === 0) lockIndices.push(1);
+
+      const puzzleSuggestions = {};
+      for (const lockIdx of lockIndices) {
+        // Check if 2-key lock
+        const twoKeyMatch = userPrompt.match(new RegExp(`Lock #${lockIdx}:[^]*?Requires (\\d+) key`));
+        const numKeys = twoKeyMatch ? parseInt(twoKeyMatch[1]) : 1;
+        const keyId1 = `item_key_${lockIdx}_part1`;
+        const keyId2 = `item_key_${lockIdx}_part2`;
+
+        if (numKeys >= 2) {
+          puzzleSuggestions[lockIdx] = [
+            { type: 'Multi-Key Combination', obstacle: 'A reinforced security door with both a keycard slot and a manual override lever.', keys: [
+              { description: 'A security keycard hidden under debris.', kind: 'item', originalKeyId: keyId1 },
+              { description: 'The override lever code, scratched into a wall nearby.', kind: 'knowledge', originalKeyId: keyId2 }
+            ]},
+            { type: 'Remote Action', obstacle: 'The corridor is flooded with knee-deep water and electrified by exposed wiring.', keys: [
+              { description: 'A rubber insulation kit to cap the wires.', kind: 'item', originalKeyId: keyId1 },
+              { description: 'A pump control valve in a maintenance closet to drain the water.', kind: 'action', originalKeyId: keyId2 }
+            ]},
+            { type: 'NPC Interaction', obstacle: 'A suspicious guard blocks the passage and demands proof of identity.', keys: [
+              { description: 'A forged ID badge crafted from scavenged materials.', kind: 'item', originalKeyId: keyId1 },
+              { description: 'The guard\'s name, learned from a frightened prisoner.', kind: 'npc', originalKeyId: keyId2 }
+            ]},
+            { type: 'Traditional Lock & Key', obstacle: 'A heavy iron-banded door with two separate keyholes.', keys: [
+              { description: 'A brass skeleton key hidden in a false wall panel.', kind: 'item', originalKeyId: keyId1 },
+              { description: 'A second key worn as a pendant by a hostile creature.', kind: 'item', originalKeyId: keyId2 }
+            ]},
+            { type: 'Information/Clues', obstacle: 'A sealed vault door with a two-part combination lock.', keys: [
+              { description: 'The first half of the code, written in a captain\'s logbook.', kind: 'knowledge', originalKeyId: keyId1 },
+              { description: 'The second half, encoded on a torn map fragment.', kind: 'knowledge', originalKeyId: keyId2 }
+            ]}
+          ];
+        } else {
+          puzzleSuggestions[lockIdx] = [
+            { type: 'Traditional Lock & Key', obstacle: 'A heavy padlocked gate bars the way forward.', keys: [
+              { description: 'A corroded brass key hidden inside a hollow statue.', kind: 'item', originalKeyId: keyId1 }
+            ]},
+            { type: 'Single Item Bypass', obstacle: 'Thick toxic fumes fill the corridor, making it impossible to breathe.', keys: [
+              { description: 'A makeshift gas mask cobbled from a filter and tubing.', kind: 'item', originalKeyId: keyId1 }
+            ]},
+            { type: 'Information/Clues', obstacle: 'A combination lock secures the hatch. Three rotating dials await input.', keys: [
+              { description: 'The combination is scrawled in a diary hidden under a loose floorboard.', kind: 'knowledge', originalKeyId: keyId1 }
+            ]},
+            { type: 'NPC Interaction', obstacle: 'A territorial figure refuses to let anyone pass without a tribute.', keys: [
+              { description: 'Convince or barter with the figure using a valuable trinket.', kind: 'npc', originalKeyId: keyId1 }
+            ]},
+            { type: 'Hidden Entrance', obstacle: 'The passage appears to be a solid dead-end wall.', keys: [
+              { description: 'A faded mural nearby hints at a hidden lever behind a loose brick.', kind: 'knowledge', originalKeyId: keyId1 }
+            ]}
+          ];
+        }
+      }
+      return JSON.stringify({ puzzleSuggestions });
+    }
+
     if (userPrompt.includes('writing content for one location') || userPrompt.includes('LOCATION TO DETAIL')) {
       const nameMatch = userPrompt.match(/Name:\s*([^\n|]+)/);
       const name = nameMatch ? nameMatch[1].trim() : 'Room';

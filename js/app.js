@@ -298,7 +298,8 @@ function setupGenerate() {
   document.getElementById('btn-approve-groups')?.addEventListener('click', runGenerationStage3);
   document.getElementById('btn-approve-verticality')?.addEventListener('click', runGenerationStage4);
   document.getElementById('btn-approve-flavor').addEventListener('click', runGenerationStage5);
-  document.getElementById('btn-approve-text').addEventListener('click', runGenerationStage6);
+  document.getElementById('btn-approve-puzzles')?.addEventListener('click', runGenerationStage6);
+  document.getElementById('btn-approve-text').addEventListener('click', runGenerationStage7);
   document.getElementById('btn-save-adventure').addEventListener('click', saveGeneratedAdventure);
 }
 
@@ -334,6 +335,7 @@ async function runGenerationStage1() {
   document.getElementById('gen-stage-3').style.display = 'none';
   document.getElementById('gen-stage-4').style.display = 'none';
   document.getElementById('gen-stage-5').style.display = 'none';
+  document.getElementById('gen-stage-6').style.display = 'none';
   
   // Progress
   const progressSection  = document.getElementById('gen-progress');
@@ -520,7 +522,7 @@ async function runGenerationStage4() {
   const progressText = document.getElementById('gen-progress-text');
   
   currentGenerator.onProgress = (done, total, message) => {
-    progressFill.style.width = '60%';
+    progressFill.style.width = '55%';
     progressText.textContent = message;
   };
 
@@ -557,6 +559,119 @@ async function runGenerationStage5() {
   const progressText = document.getElementById('gen-progress-text');
   
   currentGenerator.onProgress = (done, total, message) => {
+    progressFill.style.width = '65%';
+    progressText.textContent = message;
+  };
+
+  try {
+    const adventure = await currentGenerator.generatePuzzles(generatedAdventure);
+    generatedAdventure = adventure;
+
+    // Render puzzle suggestions UI
+    const container = document.getElementById('gen-puzzles-preview');
+    const locks = adventure.lockAnalysis || [];
+    const suggestions = adventure.puzzleSuggestions || {};
+
+    const kindIcons = { item: '📦', knowledge: '🧠', npc: '🗣️', action: '⚡' };
+    const kindLabels = { item: 'Item', knowledge: 'Knowledge', npc: 'NPC', action: 'Action' };
+
+    const typeBadgeColors = {
+      'Traditional Lock & Key': '#f59e0b',
+      'Single Item Bypass':     '#10b981',
+      'Information/Clues':      '#8b5cf6',
+      'Multi-Key Combination':  '#ef4444',
+      'Remote Action':          '#3b82f6',
+      'NPC Interaction':        '#ec4899',
+      'Hidden Entrance':        '#64748b'
+    };
+
+    if (locks.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+          <span style="font-size: 2rem;">🔓</span>
+          <p>No locked doors found in this adventure. Proceeding without puzzles.</p>
+        </div>`;
+    } else {
+      container.innerHTML = locks.map(lock => {
+        const lockSugs = suggestions[lock.lockIndex] || [];
+        return `
+          <div class="puzzle-lock-card">
+            <div class="puzzle-lock-header">
+              <div class="puzzle-lock-icon">🔒</div>
+              <div class="puzzle-lock-info">
+                <div class="puzzle-lock-title">Lock #${lock.lockIndex}</div>
+                <div class="puzzle-lock-meta">
+                  ${lock.fromRoom.name} → <span style="color:var(--indigo);">${lock.direction}</span> → ${lock.toRoom.name}
+                  &nbsp;·&nbsp; ${lock.numKeys} key${lock.numKeys > 1 ? 's' : ''} required
+                </div>
+              </div>
+            </div>
+            <div class="puzzle-options">
+              ${lockSugs.map((sug, idx) => {
+                const badgeColor = typeBadgeColors[sug.type] || '#a855f7';
+                return `
+                  <label class="puzzle-option" data-lock="${lock.lockIndex}" data-idx="${idx}">
+                    <input type="radio" name="puzzle-lock-${lock.lockIndex}" value="${idx}" ${idx === 0 ? 'checked' : ''}>
+                    <div class="puzzle-option-content">
+                      <div class="puzzle-option-header">
+                        <span class="puzzle-type-badge" style="--badge-color: ${badgeColor};">${sug.type}</span>
+                      </div>
+                      <div class="puzzle-obstacle">
+                        <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;">Obstacle:</span>
+                        ${sug.obstacle}
+                      </div>
+                      <div class="puzzle-keys">
+                        ${(sug.keys || []).map(key => `
+                          <div class="puzzle-key">
+                            <span class="puzzle-key-kind">${kindIcons[key.kind] || '❓'} ${kindLabels[key.kind] || key.kind}</span>
+                            <span class="puzzle-key-desc">${key.description}</span>
+                          </div>
+                        `).join('')}
+                      </div>
+                    </div>
+                  </label>`;
+              }).join('')}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Show map alongside puzzles
+    document.getElementById('gen-map-container').style.display = 'block';
+
+    document.getElementById('gen-stage-4').style.display = 'none';
+    document.getElementById('gen-stage-5').style.display = 'block';
+    showToast(`Puzzle suggestions generated!`, 'success', 3000);
+  } catch (err) {
+    showToast('Puzzle generation failed: ' + err.message, 'error', 6000);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function runGenerationStage6() {
+  if (!generatedAdventure || !currentGenerator) return;
+  const btn = document.getElementById('btn-approve-puzzles');
+  btn.disabled = true;
+
+  // Collect selected puzzles before proceeding
+  const selectedPuzzles = {};
+  const locks = generatedAdventure.lockAnalysis || [];
+  const suggestions = generatedAdventure.puzzleSuggestions || {};
+  for (const lock of locks) {
+    const radios = document.querySelectorAll(`input[name="puzzle-lock-${lock.lockIndex}"]`);
+    let selectedIdx = 0;
+    radios.forEach(r => { if (r.checked) selectedIdx = parseInt(r.value); });
+    const chosen = (suggestions[lock.lockIndex] || [])[selectedIdx];
+    if (chosen) selectedPuzzles[lock.lockIndex] = chosen;
+  }
+  generatedAdventure.selectedPuzzles = selectedPuzzles;
+
+  const progressFill = document.getElementById('gen-progress-fill');
+  const progressText = document.getElementById('gen-progress-text');
+  
+  currentGenerator.onProgress = (done, total, message) => {
     progressFill.style.width = '80%';
     progressText.textContent = message;
   };
@@ -578,8 +693,8 @@ async function runGenerationStage5() {
     // Hide map for text preview stage
     document.getElementById('gen-map-container').style.display = 'none';
 
-    document.getElementById('gen-stage-4').style.display = 'none';
-    document.getElementById('gen-stage-5').style.display = 'block';
+    document.getElementById('gen-stage-5').style.display = 'none';
+    document.getElementById('gen-stage-6').style.display = 'block';
     showToast(`Text descriptions generated!`, 'success', 3000);
   } catch (err) {
     showToast('Text generation failed: ' + err.message, 'error', 6000);
@@ -589,7 +704,7 @@ async function runGenerationStage5() {
   }
 }
 
-async function runGenerationStage6() {
+async function runGenerationStage7() {
   if (!generatedAdventure || !currentGenerator) return;
   const btn = document.getElementById('btn-approve-text');
   btn.disabled = true;
@@ -624,8 +739,8 @@ async function runGenerationStage6() {
     // Hide map for final artwork stage
     document.getElementById('gen-map-container').style.display = 'none';
 
-    document.getElementById('gen-stage-5').style.display = 'none';
-    document.getElementById('gen-stage-6').style.display = 'block';
+    document.getElementById('gen-stage-6').style.display = 'none';
+    document.getElementById('gen-stage-7').style.display = 'block';
     showToast(`Images generated! Ready to play!`, 'success', 3000);
   } catch (err) {
     showToast('Image generation failed: ' + err.message, 'error', 6000);
